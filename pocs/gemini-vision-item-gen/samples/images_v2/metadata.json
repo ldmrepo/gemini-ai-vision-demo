@@ -1,0 +1,104 @@
+{
+  "bar_chart_1": {
+    "type": "graph",
+    "subtype": "bar",
+    "data": [
+      83,
+      29,
+      86,
+      58,
+      67,
+      81
+    ]
+  },
+  "bar_chart_2": {
+    "type": "graph",
+    "subtype": "bar",
+    "data": [
+      68,
+      21,
+      71,
+      93,
+      51,
+      81
+    ]
+  },
+  "line_chart_1": {
+    "type": "graph",
+    "subtype": "line",
+    "data": {
+      "0": 17,
+      "4": 21,
+      "8": 21,
+      "12": 15,
+      "16": 21,
+      "20": 22
+    }
+  },
+  "line_chart_2": {
+    "type": "graph",
+    "subtype": "line",
+    "data": {
+      "0": 23,
+      "4": 31,
+      "8": 30,
+      "12": 20,
+      "16": 28,
+      "20": 35
+    }
+  },
+  "pie_chart_1": {
+    "type": "graph",
+    "subtype": "pie",
+    "data": {
+      "A반": 34,
+      "B반": 25,
+      "C반": 20,
+      "D반": 15
+    }
+  },
+  "pie_chart_2": {
+    "type": "graph",
+    "subtype": "pie",
+    "data": {
+      "A반": 30,
+      "B반": 34,
+      "C반": 19,
+      "D반": 31
+    }
+  },
+  "geometry_1": {
+    "type": "geometry",
+    "data": {
+      "AB": 15,
+      "BC": 19,
+      "AC": 12,
+      "angle_B": 60
+    }
+  },
+  "geometry_2": {
+    "type": "geometry",
+    "data": {
+      "AB": 14,
+      "BC": 17,
+      "AC": 12,
+      "angle_B": 60
+    }
+  },
+  "measurement_1": {
+    "type": "measurement",
+    "data": {
+      "start": 2,
+      "end": 9,
+      "length": 7
+    }
+  },
+  "measurement_2": {
+    "type": "measurement",
+    "data": {
+      "start": 3,
+      "end": 12,
+      "length": 9
+    }
+  }
+}
