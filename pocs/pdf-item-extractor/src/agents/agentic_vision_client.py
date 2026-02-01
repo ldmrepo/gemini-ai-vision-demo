@@ -38,9 +38,35 @@ class AgenticVisionClient:
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
 
+        # Gemini 클라이언트 초기화
         self.client = genai.Client(api_key=self.api_key)
         self.model_name = settings.gemini_model
         self.agentic_logs: list[AgenticLog] = []
+
+        # 프롬프트 캐시
+        self._prompt_cache: dict[str, str] = {}
+
+    def _load_prompt(self, prompt_name: str) -> str:
+        """프롬프트 파일 로드
+
+        Args:
+            prompt_name: 프롬프트 파일명 (확장자 제외)
+
+        Returns:
+            프롬프트 텍스트
+        """
+        if prompt_name in self._prompt_cache:
+            return self._prompt_cache[prompt_name]
+
+        prompt_path = settings.prompts_dir / f"{prompt_name}.txt"
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"프롬프트 파일을 찾을 수 없습니다: {prompt_path}")
+
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            prompt = f.read()
+
+        self._prompt_cache[prompt_name] = prompt
+        return prompt
 
     def analyze_page_layout(
         self,
@@ -106,52 +132,8 @@ JSON 형식으로 응답:
         Returns:
             (추출된 문항 목록, 공유 지문 목록)
         """
-        # 지문 + 문항 통합 감지 프롬프트
-        prompt = """Analyze this exam page and detect all passages and items.
-
-## Definitions
-
-**Passage**: Shared reading material for multiple items
-- Header pattern: "[37~38]", "[41~42]", "다음 글을 읽고" etc.
-- Contains long text shared by 2+ items
-- May span across columns (return multiple box_2d)
-
-**Item**: Individual question with choices
-- Number pattern: "37.", "38." etc.
-- Contains question text and choices (①②③④⑤)
-- If belongs to a passage, include passage_ref
-
-## Output Format
-
-box_2d: [ymin, xmin, ymax, xmax] normalized 0-1000
-
-```json
-{
-  "passages": [
-    {
-      "passage_id": "37-38",
-      "item_range": "37~38",
-      "box_2d": [ymin, xmin, ymax, xmax],
-      "box_2d_list": [[ymin, xmin, ymax, xmax], [ymin, xmin, ymax, xmax]]
-    }
-  ],
-  "items": [
-    {
-      "item_number": "37",
-      "box_2d": [ymin, xmin, ymax, xmax],
-      "passage_ref": "37-38"
-    },
-    {
-      "item_number": "39",
-      "box_2d": [ymin, xmin, ymax, xmax],
-      "passage_ref": null
-    }
-  ]
-}
-```
-
-Note: box_2d_list is only needed when passage spans multiple columns.
-"""
+        # 외부 프롬프트 파일 로드
+        prompt = self._load_prompt("item_extraction")
 
         response = self._call_vision_detection(prompt, page_image)
 

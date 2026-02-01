@@ -1,9 +1,9 @@
 """PDF 문항 추출 파이프라인
 
 P1-LOAD: PDF 로드 및 이미지 변환
-P2-ANALYZE: 페이지 레이아웃 분석
-P3-SEGMENT: 문항 경계 추출 (Agentic Vision)
-P4-EXTRACT: 문항 이미지 크롭
+P2-SEGMENT: 문항/지문 경계 추출 (Agentic Vision)
+P3-CROP: 문항/지문 이미지 크롭
+P4-VISUALIZE: 세그멘테이션 결과 시각화
 P5-VERIFY: 추출 검증
 """
 
@@ -31,14 +31,16 @@ class ItemExtractionPipeline:
         self,
         pdf_path: Path,
         page_range: Optional[tuple[int, int]] = None,
-        save_images: bool = True
+        save_images: bool = True,
+        crop_items: bool = False
     ) -> ExtractionResult:
         """파이프라인 실행
 
         Args:
             pdf_path: PDF 파일 경로
             page_range: 처리할 페이지 범위 (시작, 끝) - None이면 전체
-            save_images: 문항 이미지 저장 여부
+            save_images: 시각화 이미지 저장 여부
+            crop_items: 문항/지문 개별 이미지 크롭 여부
 
         Returns:
             추출 결과
@@ -100,15 +102,27 @@ class ItemExtractionPipeline:
                     import traceback
                     traceback.print_exc()
 
-            # P3: 세그멘테이션 결과 시각화
+            # P3: 문항/지문 이미지 크롭
+            if crop_items and all_items:
+                print(f"\n[P3-CROP] 문항/지문 이미지 크롭 중...")
+                items_dir = self.output_dir / "items" / pdf_path.stem
+                extractor.save_all_items(all_items, items_dir)
+                print(f"  문항 저장 위치: {items_dir}")
+
+                if all_passages:
+                    passages_dir = self.output_dir / "passages" / pdf_path.stem
+                    extractor.save_all_passages(all_passages, passages_dir)
+                    print(f"  지문 저장 위치: {passages_dir}")
+
+            # P4: 세그멘테이션 결과 시각화
             if save_images and all_items:
-                print(f"\n[P3-VISUALIZE] 세그멘테이션 결과 저장 중...")
+                print(f"\n[P4-VISUALIZE] 세그멘테이션 결과 저장 중...")
                 output_subdir = self.output_dir / "segmented" / pdf_path.stem
                 extractor.save_all_pages_with_boxes(all_items, output_subdir, all_passages)
                 print(f"  저장 위치: {output_subdir}")
 
-            # P4: 검증
-            print(f"\n[P4-VERIFY] 추출 검증...")
+            # P5: 검증
+            print(f"\n[P5-VERIFY] 추출 검증...")
             print(f"  총 추출 문항: {len(all_items)}개")
             print(f"  총 공유 지문: {len(all_passages)}개")
 

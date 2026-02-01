@@ -9,10 +9,13 @@ Agentic Vision을 사용하여 PDF에서 문항을 추출합니다.
 옵션:
     --pdf, -p       처리할 PDF 파일 경로 (기본: 수학-g10)
     --pages         처리할 페이지 범위 (예: 1-3)
-    --no-save       이미지 저장 안함
+    --crop          문항/지문 개별 이미지 크롭
+    --no-save       시각화 이미지 저장 안함
+    --force         기존 결과 무시하고 재실행
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -41,15 +44,25 @@ def main():
         help="처리할 페이지 범위 (예: 1-3)"
     )
     parser.add_argument(
+        "--crop",
+        action="store_true",
+        help="문항/지문 개별 이미지 크롭"
+    )
+    parser.add_argument(
         "--no-save",
         action="store_true",
-        help="이미지 저장 안함"
+        help="시각화 이미지 저장 안함"
     )
     parser.add_argument(
         "--dpi",
         type=int,
         default=None,
         help="PDF 렌더링 DPI (기본: 100)"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="기존 결과 무시하고 재실행"
     )
     args = parser.parse_args()
 
@@ -103,39 +116,72 @@ def main():
     if page_range:
         print(f"  페이지 범위: {page_range[0]}-{page_range[1]}")
 
-    # 파이프라인 실행
-    pipeline = ItemExtractionPipeline()
+    # 기존 결과 확인
+    output_dir = settings.output_dir
+    result_json_path = output_dir / f"{pdf_path.stem}_extraction.json"
 
-    try:
-        result = pipeline.run(
-            pdf_path=pdf_path,
-            page_range=page_range,
-            save_images=not args.no_save
-        )
+    if result_json_path.exists() and not args.force:
+        print(f"\n[캐시 발견] 기존 추출 결과 사용")
+        print(f"  파일: {result_json_path.name}")
+        print(f"  (재실행하려면 --force 옵션 사용)")
 
-        # 결과 저장
-        pipeline.save_result(result)
+        # 기존 결과 로드
+        with open(result_json_path, "r", encoding="utf-8") as f:
+            cached_data = json.load(f)
 
-        # 요약 출력
-        print("\n" + "=" * 60)
-        print("추출 결과 요약")
-        print("=" * 60)
-        print(f"처리된 페이지: {result.processed_pages}개")
-        print(f"추출된 문항: {len(result.items)}개")
-        print(f"공유 지문: {len(result.passages)}개")
+        from src.core.schemas import ExtractionResult
+        result = ExtractionResult(**cached_data)
 
-        if result.items:
-            print(f"\n[추출된 문항 목록]")
-            for item in result.items:
-                print(f"  문항 {item.item_number} (p{item.page_number}): "
-                      f"{item.item_type.value}")
-                if item.image_path:
-                    print(f"    이미지: {Path(item.image_path).name}")
+        # 크롭만 필요한 경우 처리
+        if args.crop:
+            items_dir = output_dir / "items" / pdf_path.stem
+            if items_dir.exists() and any(items_dir.glob("*.png")):
+                print(f"  크롭 이미지 이미 존재: {items_dir}")
+            else:
+                print(f"\n[P3-CROP] 문항 이미지 크롭 중...")
+                from src.extractors.pdf_extractor import PDFExtractor
+                with PDFExtractor(pdf_path) as extractor:
+                    extractor.save_all_items(result.items, items_dir)
+                    if result.passages:
+                        passages_dir = output_dir / "passages" / pdf_path.stem
+                        extractor.save_all_passages(result.passages, passages_dir)
 
-    except Exception as e:
-        print(f"\n오류 발생: {e}")
-        import traceback
-        traceback.print_exc()
+    else:
+        # 파이프라인 실행
+        pipeline = ItemExtractionPipeline()
+
+        try:
+            result = pipeline.run(
+                pdf_path=pdf_path,
+                page_range=page_range,
+                save_images=not args.no_save,
+                crop_items=args.crop
+            )
+
+            # 결과 저장
+            pipeline.save_result(result)
+
+        except Exception as e:
+            print(f"\n오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
+            return
+
+    # 요약 출력
+    print("\n" + "=" * 60)
+    print("추출 결과 요약")
+    print("=" * 60)
+    print(f"처리된 페이지: {result.processed_pages}개")
+    print(f"추출된 문항: {len(result.items)}개")
+    print(f"공유 지문: {len(result.passages)}개")
+
+    if result.items:
+        print(f"\n[추출된 문항 목록]")
+        for item in result.items:
+            print(f"  문항 {item.item_number} (p{item.page_number}): "
+                  f"{item.item_type.value}")
+            if item.image_path:
+                print(f"    이미지: {Path(item.image_path).name}")
 
 
 if __name__ == "__main__":

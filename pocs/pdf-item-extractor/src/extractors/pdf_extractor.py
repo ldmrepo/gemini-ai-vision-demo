@@ -187,7 +187,83 @@ class PDFExtractor:
             path = self.save_item_image(item, output_dir, padding)
             item.image_path = str(path)
             saved_paths.append(path)
-            print(f"  저장: {path.name}")
+            print(f"  문항 {item.item_number}: {path.name}")
+
+        return saved_paths
+
+    def save_passage_image(
+        self,
+        passage: PassageInfo,
+        output_dir: Path,
+        padding: int = 10
+    ) -> list[Path]:
+        """지문 이미지 저장 (다중 bbox 지원)
+
+        Args:
+            passage: 지문 정보
+            output_dir: 출력 디렉토리
+            padding: 여백 (픽셀)
+
+        Returns:
+            저장된 파일 경로 목록
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_paths = []
+
+        # bbox_list가 있으면 각각 저장, 없으면 메인 bbox만 저장
+        bboxes = passage.bbox_list if passage.bbox_list else [passage.bbox]
+
+        for idx, bbox in enumerate(bboxes):
+            # 이미지 크롭
+            img_bytes = self.crop_region(passage.page_number, bbox, padding)
+
+            # 파일명 생성 (다중 bbox면 _1, _2 등 suffix 추가)
+            if len(bboxes) > 1:
+                filename = f"passage_{passage.passage_id}_p{passage.page_number}_{idx + 1}.png"
+            else:
+                filename = f"passage_{passage.passage_id}_p{passage.page_number}.png"
+            output_path = output_dir / filename
+
+            # 저장
+            with open(output_path, "wb") as f:
+                f.write(img_bytes)
+
+            saved_paths.append(output_path)
+
+        return saved_paths
+
+    def save_all_passages(
+        self,
+        passages: list[PassageInfo],
+        output_dir: Path,
+        padding: int = 10
+    ) -> list[Path]:
+        """모든 지문 이미지 저장
+
+        Args:
+            passages: 지문 목록
+            output_dir: 출력 디렉토리
+            padding: 여백 (픽셀)
+
+        Returns:
+            저장된 파일 경로 목록
+        """
+        saved_paths = []
+        for passage in passages:
+            paths = self.save_passage_image(passage, output_dir, padding)
+            # 첫 번째 경로를 대표 이미지로 저장
+            passage.image_path = str(paths[0]) if paths else None
+            saved_paths.extend(paths)
+
+            # 저장 결과 출력
+            if len(paths) > 1:
+                print(f"  지문 [{passage.item_range}]: {len(paths)}개 영역")
+                for p in paths:
+                    print(f"    - {p.name}")
+            else:
+                print(f"  지문 [{passage.item_range}]: {paths[0].name}")
 
         return saved_paths
 

@@ -13,6 +13,42 @@ class ItemType(str, Enum):
     PASSAGE_GROUP = "passage_group"  # 지문 공유 문항
 
 
+class ContentType(str, Enum):
+    """콘텐츠 블록 유형"""
+    TEXT = "text"          # 일반 텍스트
+    MATH = "math"          # 수식 (LaTeX)
+    IMAGE = "image"        # 이미지/그래프/다이어그램
+    TABLE = "table"        # 표
+    CODE = "code"          # 코드 블록
+
+
+class ContentBlock(BaseModel):
+    """콘텐츠 블록"""
+    type: ContentType = Field(..., description="콘텐츠 유형")
+    value: str = Field(default="", description="텍스트/LaTeX 값")
+    image_path: Optional[str] = Field(None, description="이미지 경로 (type=image일 때)")
+    description: Optional[str] = Field(None, description="이미지 설명 (type=image일 때)")
+    box_2d: Optional[list[int]] = Field(None, description="bbox [ymin, xmin, ymax, xmax] 0-1000")
+
+
+class Choice(BaseModel):
+    """선택지"""
+    label: str = Field(..., description="선택지 라벨 (①, ②, ㄱ, ㄴ 등)")
+    content: list[ContentBlock] = Field(default_factory=list, description="선택지 내용")
+    box_2d: Optional[list[int]] = Field(None, description="선택지 전체 bbox")
+
+
+class ParsedItem(BaseModel):
+    """파싱된 문항 구조"""
+    item_number: str = Field(..., description="문항 번호")
+    question: list[ContentBlock] = Field(default_factory=list, description="질문 내용")
+    choices: list[Choice] = Field(default_factory=list, description="선택지 목록")
+    has_boxed_text: bool = Field(default=False, description="보기 박스 포함 여부")
+    boxed_content: list[ContentBlock] = Field(default_factory=list, description="보기 박스 내용")
+    boxed_area: Optional[list[int]] = Field(None, description="보기 박스 전체 bbox")
+    source_image: Optional[str] = Field(None, description="원본 크롭 이미지 경로")
+
+
 class BoundingBox(BaseModel):
     """바운딩 박스 좌표"""
     x1: float = Field(..., description="좌측 상단 X")

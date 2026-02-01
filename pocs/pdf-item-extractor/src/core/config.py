@@ -26,6 +26,12 @@ class Settings(BaseSettings):
         description="출력 디렉토리"
     )
 
+    # 프롬프트 설정
+    prompts_dir: Path = Field(
+        default=Path(__file__).parent.parent.parent / "prompts",
+        description="프롬프트 디렉토리"
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
